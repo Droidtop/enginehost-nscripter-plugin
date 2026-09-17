@@ -1,0 +1,15 @@
+{
+  "description": "Enginehost plugin implementation repository for the ONScripter engine (NScripter games)",
+  "engine": "nscripter",
+  "engineContexts": [
+    "nscripter",
+    "onscripter"
+  ],
+  "formatVersion": 1,
+  "implementation": {
+    "id": "onsyuri",
+    "name": "OnscripterYuri",
+    "upstream": "https://github.com/YuriSizuku/OnscripterYuri"
+  },
+  "origin": "https://github.com/droidtop/enginehost-nscripter-plugin"
+}

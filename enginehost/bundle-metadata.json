@@ -1,0 +1,178 @@
+{
+  "bundleId": "dev.enginehost.nscripter.onsyuri.v1",
+  "engine": "nscripter",
+  "pluginVersion": "0.1",
+  "apiVersion": 1,
+  "entrypoint": "com.yuri.onscripter.ONScripter",
+  "runtimeTransport": "android-activity",
+  "origin": "https://github.com/droidtop/enginehost-nscripter-plugin",
+  "dexFiles": [
+    "classes.dex"
+  ],
+  "resourceApks": [
+    "runtime.apk"
+  ],
+  "capabilities": [
+    {
+      "id": "nscripter-onsyuri-v1",
+      "engineContext": "nscripter",
+      "runtimeVersion": "0.7.7",
+      "acceptsAnyEngineVersion": true
+    },
+    {
+      "id": "onscripter-onsyuri-v1",
+      "engineContext": "onscripter",
+      "runtimeVersion": "0.7.7",
+      "acceptsAnyEngineVersion": true
+    }
+  ],
+  "declaredOptions": [
+    {
+      "key": "encoding",
+      "label": "Script encoding",
+      "type": "choice",
+      "repeats": false,
+      "description": "Character set the script is read as. The engine guesses, and guesses wrong on some releases; set this when the text comes out as mojibake (--enc:, src/onsyuri/onscripter_main.cpp:383-392).",
+      "choices": [
+        {
+          "value": "sjis",
+          "label": "Shift_JIS (Japanese)"
+        },
+        {
+          "value": "gbk",
+          "label": "GBK (Chinese)"
+        },
+        {
+          "value": "utf8",
+          "label": "UTF-8"
+        }
+      ]
+    },
+    {
+      "key": "fontFile",
+      "label": "Font file",
+      "type": "file",
+      "repeats": false,
+      "description": "Font the engine draws text with (--font, src/onsyuri/onscripter_main.cpp:365-369). Left alone, the game's own default.ttf is used, and a Japanese system font when the game ships none.",
+      "mimeTypes": [
+        "font/ttf",
+        "font/otf",
+        "font/collection",
+        "application/x-font-ttf",
+        "application/octet-stream"
+      ]
+    },
+    {
+      "key": "stretchFullscreen",
+      "label": "Stretch to fill the screen",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Stretches the game to the whole display instead of keeping its own aspect ratio (--fullscreen2 rather than --fullscreen, src/onsyuri/onscripter_main.cpp:408-413)."
+    },
+    {
+      "key": "width",
+      "label": "Render width",
+      "type": "number",
+      "repeats": false,
+      "description": "Forces the width the engine renders at, for a game whose own resolution reads badly on this screen (--width, src/onsyuri/onscripter_main.cpp:398)."
+    },
+    {
+      "key": "height",
+      "label": "Render height",
+      "type": "number",
+      "repeats": false,
+      "description": "Forces the height the engine renders at (--height, src/onsyuri/onscripter_main.cpp:403)."
+    },
+    {
+      "key": "sharpness",
+      "label": "Sharpness",
+      "type": "number",
+      "repeats": false,
+      "description": "GLES sharpening applied while scaling the picture up, for example 3.1 (--sharpness, src/onsyuri/onscripter_main.cpp:414)."
+    },
+    {
+      "key": "disableVideo",
+      "label": "Skip videos",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Skips the game's video scenes instead of handing them to a video player (--no-video, src/onsyuri/onscripter_main.cpp:419)."
+    },
+    {
+      "key": "disableVsync",
+      "label": "Turn vertical sync off",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Stops waiting for the display refresh (--no-vsync, src/onsyuri/onscripter_main.cpp:422)."
+    },
+    {
+      "key": "disableRescale",
+      "label": "Do not rescale archived images",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Leaves images in the game's .nsa and .sar archives at their stored size (--disable-rescale, src/onsyuri/onscripter_main.cpp:451)."
+    },
+    {
+      "key": "renderFontOutline",
+      "label": "Outline the text",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Draws an outline around text instead of a drop shadow, which reads better over bright art (--render-font-outline, src/onsyuri/onscripter_main.cpp:454)."
+    },
+    {
+      "key": "enableWheeldownAdvance",
+      "label": "Advance on wheel down",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Lets the wheel-down input advance the text, which on a pad is the right-hand cursor action (--enable-wheeldown-advance, src/onsyuri/onscripter_main.cpp:448)."
+    },
+    {
+      "key": "forceButtonShortcut",
+      "label": "Ignore the game's key restrictions",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Ignores a game's useescspc and getenter commands, so Escape and Space keep their usual meanings (--force-button-shortcut, src/onsyuri/onscripter_main.cpp:445)."
+    },
+    {
+      "key": "registryFile",
+      "label": "Registry file",
+      "type": "file",
+      "repeats": false,
+      "description": "A file standing in for the Windows registry entries a game reads (--registry, src/onsyuri/onscripter_main.cpp:435)."
+    },
+    {
+      "key": "dllFile",
+      "label": "DLL configuration file",
+      "type": "file",
+      "repeats": false,
+      "description": "A file standing in for the plugin DLL settings a game reads (--dll, src/onsyuri/onscripter_main.cpp:440)."
+    },
+    {
+      "key": "keyExeFile",
+      "label": "Key table executable",
+      "type": "file",
+      "repeats": false,
+      "description": "A game's own .exe, read for the key table it uses to decode an encrypted nscript.dat (--key-exe, src/onsyuri/onscripter_main.cpp:460)."
+    },
+    {
+      "key": "fontCache",
+      "label": "Cache the font",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Keeps the default font in memory, which starts scenes faster and costs memory (--fontcache, src/onsyuri/onscripter_main.cpp:465)."
+    },
+    {
+      "key": "debugLog",
+      "label": "Verbose engine log",
+      "type": "boolean",
+      "repeats": false,
+      "description": "Prints the engine's own debug output to logcat, for reporting a game that misbehaves (--debug:1, src/onsyuri/onscripter_main.cpp:380)."
+    }
+  ],
+  "source": {
+    "upstream": "https://github.com/YuriSizuku/OnscripterYuri",
+    "revision": "0.7.7 (08f744b31cc1907b66a15f0402e62321a131ed81)"
+  },
+  "licenses": [
+    "GPL-2.0-or-later, with SDL2 and its satellites under Zlib and the other bundled upstream notices"
+  ]
+}
