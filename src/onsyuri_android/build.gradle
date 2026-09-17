@@ -4,6 +4,8 @@ plugins {
     id 'com.android.library' version '8.13.2' apply false
 }
 
-allprojects {
-    buildDir = "./../../../build_android"
-}
+// Upstream redirected every project's build directory three levels up, out of
+// the Android Studio project. Relative to the root project that lands outside
+// the repository altogether -- it wrote to /root/build_android on the machine
+// this was first built on -- and build output belongs inside the tree it came
+// from. Gradle's own default (<project>/build) is used instead.

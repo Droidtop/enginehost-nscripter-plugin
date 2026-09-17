@@ -121,7 +121,7 @@ jobs:
       - name: Check the APK before it is signed into a bundle
         run: |
           set -eux
-          apk="$(find build_android/outputs/apk/release -name '*.apk' -print -quit)"
+          apk="$(find src/onsyuri_android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
           test -f "$apk"
           echo "APK=$apk" >> "$GITHUB_ENV"
           aapt="$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)"
