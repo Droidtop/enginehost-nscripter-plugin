@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SDLActivity extends AppCompatActivity, so the window it comes up in has to
+  carry an AppCompat theme or AppCompat refuses to initialise. Standalone that
+  theme comes from the manifest; inside Enginehost this activity is
+  materialised behind the host's manifest-declared proxy, and the platform has
+  no ActivityInfo of ours to read a theme off, so the activity selects this one
+  itself before calling through to super.onCreate.
+
+  No action bar, no title, black window: the engine draws the whole screen and
+  anything else is a flash of chrome at launch. AppCompat rather than
+  MaterialComponents because SDLActivity needs AppCompat and nothing here needs
+  Material; that keeps one library out of the bundle.
+-->
+<resources>
+    <style name="EnginehostONScripterActivity" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>

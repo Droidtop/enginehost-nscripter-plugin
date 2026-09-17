@@ -8,3 +8,4 @@ thirdparty/port/
 thirdparty/build/
 src/onsyuri_android/app/build/
 src/onsyuri_android/.gradle/
+tests/game/*.bmp

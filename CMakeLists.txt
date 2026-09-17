@@ -57,7 +57,13 @@ function(config_linux TARGET_NAME)
             SDL2::SDL2
             jpeg
             bz2
-            lua
+            # find_package(Lua) above already found the library; linking the
+            # bare name "lua" instead ignored that and asked the linker for a
+            # liblua.so, which distributions do not ship -- Debian and Ubuntu
+            # call it liblua5.4.so. The headless test in tests/ builds this
+            # target, so it has to link on a stock machine. Android is
+            # untouched: config_android builds a lua target of its own.
+            ${LUA_LIBRARIES}
             dl
             SDL2_ttf
             SDL2_image

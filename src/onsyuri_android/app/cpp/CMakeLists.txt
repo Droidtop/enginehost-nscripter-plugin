@@ -12,23 +12,33 @@ set(JPEG_DIR ${THIRDPARTY_PORT}/SDL2_image-2.6.3/external/jpeg)
 set(LUA_DIR ${THIRDPARTY_PORT}/lua-5.4.4)
 set(BZ2_DIR ${THIRDPARTY_PORT}/bzip2-1.0.8)
 
+# Each ABI builds into its own binary tree.
+#
+# Upstream sends every add_subdirectory to one absolute path under the source
+# tree (${ONSYURI_DIR}/build_android), so two ABIs configured from the same
+# checkout land on each other's object files and only the last one built
+# survives; it happens to work standalone because Gradle builds one ABI at a
+# time and copies its .so out straight away. This plugin ships two ABIs, so the
+# binary directories hang off CMAKE_BINARY_DIR instead, which is per-ABI, and
+# the two builds cannot touch each other.
+
 # build sdl2
 set(ANDROID TRUE)
 set(CMAKE_SYSTEM_NAME Linux)
-add_subdirectory(${SDL2_DIR} ${ONSYURI_DIR}/build_android/thirdparty/sdl2)
+add_subdirectory(${SDL2_DIR} ${CMAKE_BINARY_DIR}/thirdparty/sdl2)
 target_link_options(SDL2 PRIVATE "-Wl,-z,max-page-size=16384")
 
 # build sdl2_image
 set(SDL2IMAGE_INSTALL off)
 set(SDL2IMAGE_SAMPLES off)
-add_subdirectory(${SDL2IMAGE_DIR} ${ONSYURI_DIR}/build_android/thirdparty/sdl2image)
+add_subdirectory(${SDL2IMAGE_DIR} ${CMAKE_BINARY_DIR}/thirdparty/sdl2image)
 target_link_options(SDL2_image PRIVATE "-Wl,-z,max-page-size=16384")
 
 # build sdl2_ttf
 set(SDL2TTF_SAMPLES off)
 set(SDL2TTF_INSTALL off)
 set(SDL2TTF_VENDORED on) # use external ttf in source code
-add_subdirectory(${SDL2TTF_DIR} ${ONSYURI_DIR}/build_android/thirdparty/sdl2ttf)
+add_subdirectory(${SDL2TTF_DIR} ${CMAKE_BINARY_DIR}/thirdparty/sdl2ttf)
 target_link_options(SDL2_ttf PRIVATE "-Wl,-z,max-page-size=16384")
 
 # build sdl2 mixer
@@ -40,11 +50,11 @@ set(SDL2MIXER_MOD off)
 set(SDL2MIXER_VORBIS_STB on)
 set(SDL2MIXER_VENDORED on)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-dev")
-add_subdirectory(${SDL2MIXER_DIR} ${ONSYURI_DIR}/build_android/thirdparty/sdl2mixer)
+add_subdirectory(${SDL2MIXER_DIR} ${CMAKE_BINARY_DIR}/thirdparty/sdl2mixer)
 target_link_options(SDL2_mixer PRIVATE "-Wl,-z,max-page-size=16384")
 
 # build jpeg
-add_subdirectory(${JPEG_DIR} ${ONSYURI_DIR}/build_android/thirdparty/jpeg)
+add_subdirectory(${JPEG_DIR} ${CMAKE_BINARY_DIR}/thirdparty/jpeg)
 target_link_options(jpeg PRIVATE "-Wl,-z,max-page-size=16384")
 
 # build lua
@@ -79,5 +89,5 @@ include_directories(
     ${BZ2_DIR}
     ${LUASRC_DIR}
 )
-add_subdirectory(${ONSYURI_DIR} ${ONSYURI_DIR}/build_android)
+add_subdirectory(${ONSYURI_DIR} ${CMAKE_BINARY_DIR}/onsyuri)
 target_link_options(onsyuri PRIVATE "-Wl,-z,max-page-size=16384")

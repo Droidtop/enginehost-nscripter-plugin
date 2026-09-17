@@ -1,69 +1,77 @@
+// The Enginehost runtime APK for the ONScripter engine.
+//
+// This is still an Android application module rather than a library, because
+// what the bundle carries is an APK: Enginehost attaches its compiled resource
+// table and its dex to the host runtime process and loads the activity out of
+// it. It is never installed as an app, which is why the manifest has no
+// launcher activity and this file has no signing config -- the bytes are
+// signed as an Enginehost bundle, by the repository key, in CI.
 plugins {
     id 'com.android.application'
 }
 
 android {
+    // The namespace is the package the engine's JNI entry points are exported
+    // under (SDL_JAVA_PACKAGE_PATH in the engine's CMakeLists, and the class
+    // name in onscripter_main.cpp). Renaming it renames native symbols.
     namespace 'com.yuri.onscripter'
-    compileSdk 31
+
+    compileSdk 36
+    // The NDK is pinned rather than left to whatever the runner happens to
+    // ship: this engine and SDL 2.26 are built against r26, and a silent
+    // toolchain change is not something a plugin should discover on a device.
     ndkVersion '26.3.11579264'
-    buildToolsVersion '36.1.0'
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     defaultConfig {
-        applicationId "com.yuri.onscripter"
-        minSdk 22
-        targetSdk 36
-        packagingOptions {
-            // doNotStrip '**.so' // important for debug so
-        }
+        applicationId "dev.enginehost.plugin.nscripter.onsyuri.slot1"
+        // Enginehost's own floor.
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+        // One bundle serves every device: the host picks lib/<abi> out of the
+        // bundle from Build.SUPPORTED_ABIS, so both ABIs ship side by side.
+        // arm64-v8a is the console; x86_64 is x86 hardware and the Android
+        // emulator rig we test on. Nothing in this engine depends on either --
+        // its SIMD helpers are only compiled with USE_SIMD_*, which the
+        // Android configuration does not define.
         ndk {
-            abiFilters 'armeabi-v7a', 'arm64-v8a'
+            abiFilters 'arm64-v8a', 'x86_64'
         }
         externalNativeBuild {
             cmake {
-                arguments "-Wno-dev",  "-DANDROID_ARM_NEON=TRUE"
-            }
-        }
-        versionCode 10
-        versionName '0.7.7'
-    }
-    signingConfigs {
-        release {
-            def signPropsFile = file('sign.properties')
-            storeFile file('sign.jks')
-            if (signPropsFile.exists()) {
-                Properties signProps = new Properties()
-                signProps.load(new FileInputStream(signPropsFile))
-                keyAlias signProps['SIGN_KEY_ALIAS']
-                keyPassword signProps['SIGN_KEY_PASS']
-                storePassword signProps['SIGN_STORE_PASS']
-            }
-            else {
-                keyAlias System.getenv("SIGN_KEY_ALIAS")
-                keyPassword System.getenv("SIGN_KEY_PASS")
-                storePassword System.getenv("SIGN_STORE_PASS")
+                arguments "-Wno-dev"
             }
         }
     }
+
     buildTypes {
         release {
-            minifyEnabled true // this may cause jni crash
+            // The engine calls getFD, mkdir and playVideo on this activity by
+            // name through JNI, and nothing in Java references them. R8 would
+            // remove all three and the engine would fail at a call into a
+            // method that no longer exists, so shrinking stays off; upstream
+            // has the same note against it ("this may cause jni crash").
+            minifyEnabled false
             debuggable false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if(file('sign.properties').exists() || System.getenv("SIGN_KEY_ALIAS")) {
-                signingConfig signingConfigs.release
-            }
         }
         debug {
             minifyEnabled false
             debuggable true
-            if(file('sign.properties').exists() || System.getenv("SIGN_KEY_ALIAS")) {
-                signingConfig signingConfigs.release
-            }
         }
+    }
+
+    // Enginehost loads this runtime's resources beside its own, which sit at
+    // package id 0x7f; a second table at 0x7f is answered from whichever the
+    // platform finds first and the bundle silently gets a host resource. The
+    // host refuses a bundle that collides, so compile at 0x80.
+    androidResources {
+        additionalParameters += ["--package-id", "0x80", "--allow-reserved-package-id"]
     }
 
     sourceSets {
@@ -73,26 +81,19 @@ android {
             res.srcDirs = ['res']
         }
     }
+
     externalNativeBuild {
         cmake {
             version '3.22.1'
             path 'cpp/CMakeLists.txt'
-            // this might be some problem with ninja
-            // buildStagingDirectory './../../../build_android'
-        }
-    }
-    android.applicationVariants.all { variant ->
-        variant.outputs.all {
-            outputFileName = "onsyuri[${namespace}]_v${defaultConfig.versionName}.apk"
         }
     }
 }
 
+// appcompat only: SDLActivity extends AppCompatActivity, so it is required.
+// Material and ConstraintLayout went with the standalone game browser this
+// bundle does not carry, and a bundle should not ship a library nothing in it
+// loads.
 dependencies {
-    implementation 'androidx.appcompat:appcompat:1.4.1'
-    implementation 'com.google.android.material:material:1.5.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
-    testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
