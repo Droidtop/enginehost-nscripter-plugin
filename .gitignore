@@ -1,0 +1,10 @@
+build/
+build_android/
+.gradle/
+.cxx/
+*.iml
+local.properties
+thirdparty/port/
+thirdparty/build/
+src/onsyuri_android/app/build/
+src/onsyuri_android/.gradle/
