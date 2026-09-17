@@ -33,9 +33,6 @@ rejected, for reasons that are in its code rather than in its reputation:
   (`src/onsyuri/ONScripter_event.cpp:138-163`) — which is to say, this line of
   the engine already has an opinion about what an Android pad does, and this
   plugin can use the engine's opinion instead of inventing one.
-- **Saves.** It has no way to put saves anywhere but the game folder. Ogapee's
-  `--save-dir` reached this line and not that one, and a command-line save
-  directory is exactly the seam Enginehost's per-game save folder needs.
 - **Maintenance and coverage.** Last upstream commit 2023; OnscripterYuri is at
   0.7.7 (June 2026) and carries runtime-selectable Shift_JIS, GBK and UTF-8
   script encodings, half-width English text, Lua, and the builtin-DLL layer
@@ -68,18 +65,18 @@ It turns the Enginehost launch into options the engine already had:
 | Enginehost | ONScripter |
 | --- | --- |
 | `dev.enginehost.runtime.PATH` | `--root` |
-| `dev.enginehost.runtime.SAVE_PATH` | `--save-dir` |
+| `dev.enginehost.runtime.SAVE_PATH` | not used: this engine has no system save location |
 | `dev.enginehost.runtime.ENGINE_CONTEXT` | validated: `nscripter` or `onscripter` |
 | `dev.enginehost.runtime.OPTIONS` | the options in `enginehost/bundle-metadata.json` |
 | `dev.enginehost.runtime.CONTROLLER_BINDINGS` | the engine's own keys (below) |
 
-Saves land in Enginehost's folder for the game. That is not a convention the
-wrapper imposes: a save directory given on the command line deliberately
-outranks both the game's own `savedir` command and the path recorded in
-`envdata`, because each of those assigns `save_dir` only `if (!save_dir)`
-(`ScriptParser::savedirCommand`, `ONScripter::readEnvData`). So `save<n>.dat`,
-`gloval.sav` and screenshots go to the host's folder whatever the game asks
-for.
+Saves stay where NScripter puts them: beside the game (`save<n>.dat`,
+`gloval.sav`, `envdata`), or in the folder the game's own `savedir` command
+names. Enginehost does not change where a game saves; its save folder stands
+in for SYSTEM locations only (a user profile, an app-private directory), and
+this engine has none. Saves that came with a game folder keep loading. The
+engine's `--save-dir` exists and the headless test uses it to keep its fixture
+clean; the wrapper does not pass it.
 
 One file does not: `envdata`, the engine's global settings, which
 `ScriptParser::saveFileIOBuf` and `loadFileIOBuf` exclude from the save

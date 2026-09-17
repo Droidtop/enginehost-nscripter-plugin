@@ -41,12 +41,13 @@ import java.util.Map;
  * Turns an Enginehost launch into ONScripter's own command line, and an
  * Enginehost controller map into ONScripter's own keys.
  *
- * <p><b>The launch.</b> Enginehost passes the game folder, the folder saves
- * belong in, the engine context and a JSON options object as intent extras.
- * Every one of them becomes an option the engine already had: {@code --root}
- * for the folder, {@code --save-dir} for the saves, {@code --enc:} for the
- * script encoding and so on (src/onsyuri/onscripter_main.cpp:357-470). Nothing
- * is copied and nothing in the game folder is written to.
+ * <p><b>The launch.</b> Enginehost passes the game folder, the engine
+ * context and a JSON options object as intent extras. Every one of them
+ * becomes an option the engine already had: {@code --root} for the folder,
+ * {@code --enc:} for the script encoding and so on
+ * (src/onsyuri/onscripter_main.cpp:357-470). Saves go where the engine puts
+ * them, beside the game; Enginehost's save folder stands in for SYSTEM
+ * locations only, and this engine has none.
  *
  * <p><b>The controls.</b> The engine has a controller model of its own: it
  * opens an SDL game controller (src/onsyuri/ONScripter.cpp:157-159) and turns
@@ -68,7 +69,6 @@ public final class ONScripter extends SDLActivity {
 
     private static final String EXTRA_CONTEXT = "dev.enginehost.runtime.ENGINE_CONTEXT";
     private static final String EXTRA_PATH = "dev.enginehost.runtime.PATH";
-    private static final String EXTRA_SAVE_PATH = "dev.enginehost.runtime.SAVE_PATH";
     private static final String EXTRA_OPTIONS = "dev.enginehost.runtime.OPTIONS";
     private static final String EXTRA_BINDINGS = "dev.enginehost.runtime.CONTROLLER_BINDINGS";
 
@@ -122,12 +122,6 @@ public final class ONScripter extends SDLActivity {
                 failure = "ONScripter options must be a JSON object";
             }
         }
-        File saves = null;
-        if (failure == null) {
-            saves = saveDirectory(game, options);
-            if (saves == null) failure = "Unable to create the save folder for this game";
-        }
-
         // SDLActivity.onCreate has to run whatever happens: an Activity that
         // returns from onCreate without calling through dies with
         // SuperNotCalledException instead of showing its message. It is still
@@ -136,7 +130,7 @@ public final class ONScripter extends SDLActivity {
         // the RESUMED state (handleNativeState), which a finish() in onCreate
         // never lets happen.
         if (failure == null) {
-            arguments = buildArguments(game, saves, options);
+            arguments = buildArguments(game, options);
             Log.i(TAG, "Launching ONScripter with " + join(arguments));
             loadControllerBindings(getIntent().getStringExtra(EXTRA_BINDINGS));
             launched = true;
@@ -153,29 +147,17 @@ public final class ONScripter extends SDLActivity {
     }
 
     /** The engine's command line, in the engine's own options. */
-    private String[] buildArguments(File game, File saves, JSONObject options) {
+    private String[] buildArguments(File game, JSONObject options) {
         ArrayList<String> args = new ArrayList<String>();
         // --root: where the script and the .nsa/.sar archives are read from
         // (onscripter_main.cpp:370, ONScripter::setArchivePath).
         args.add("--root");
         args.add(game.getPath());
-        // --save-dir: where save<n>.dat and gloval.sav go. A save directory
-        // given on the command line deliberately wins over both the game's own
-        // `savedir` command and the one recorded in envdata -- each of those
-        // sets save_dir only "if (!save_dir)", in
-        // ScriptParser::savedirCommand and ONScripter::readEnvData -- so a
-        // game's saves land in Enginehost's folder for it whatever the game
-        // asks for.
-        //
-        // One file is not covered: `envdata`, the engine's global settings,
-        // which ScriptParser::saveFileIOBuf and loadFileIOBuf exclude from the
-        // save directory by name (ScriptParser.cpp:359, :384) and therefore
-        // read and write beside the game. That is the engine's own design --
-        // envdata is where a game's `savedir` name is recorded, so it has to
-        // be readable before the save directory is known -- and it is left
-        // alone here rather than quietly given different semantics.
-        args.add("--save-dir");
-        args.add(saves.getPath() + File.separator);
+        // No --save-dir. NScripter games save beside themselves (save<n>.dat,
+        // gloval.sav, envdata in the game folder, or the folder the game's own
+        // `savedir` command names), and Enginehost does not change where a
+        // game saves: it only gives SYSTEM locations a different meaning, and
+        // this engine has none. Saves that came with the game keep loading.
 
         String font = fontFile(game, options);
         if (font != null) {
@@ -236,15 +218,6 @@ public final class ONScripter extends SDLActivity {
         Log.w(TAG, "No default.ttf in the game and no Japanese system font found; "
             + "the engine will look for default.ttf itself");
         return null;
-    }
-
-    private File saveDirectory(File game, JSONObject options) {
-        String path = getIntent().getStringExtra(EXTRA_SAVE_PATH);
-        if (path == null || path.trim().isEmpty()) path = options.optString("savePath", "");
-        if (path.trim().isEmpty()) return null;
-        File saves = new File(path);
-        if (!saves.isDirectory() && !saves.mkdirs()) return null;
-        return saves;
     }
 
     private static File directory(String path) {
