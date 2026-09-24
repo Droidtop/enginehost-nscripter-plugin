@@ -3,18 +3,20 @@ on:
   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request: 
 
+# Read-only by default; only the jobs that create releases may write
+# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   install_thirdparty_build:
     runs-on: ubuntu-22.04 # default batch, powershell
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
     
     - name: check or download thirdparty_build cache
       id: check_thirdparty_build
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with: 
         path: ./thirdparty
         key: thirdparty_build
@@ -26,6 +28,8 @@ jobs:
         tar xvzf thirdparty_build.tar.gz
 
   build_linux:
+    permissions:
+      contents: write
     strategy:
       matrix: 
         arch: [{suffix2: 32, suffix: x86}, {suffix2: 64, suffix: x64}, {suffix2: a32, suffix: arm32}, {suffix2: a64, suffix: arm64}]
@@ -33,10 +37,10 @@ jobs:
     runs-on: ubuntu-22.04
     needs: install_thirdparty_build
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
     
     - name: get thirdparty_build cache
-      uses: actions/cache@v3
+      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
       with: 
         key: thirdparty_build
         path: ./thirdparty
@@ -64,7 +68,7 @@ jobs:
         mv onsyuri onsyuri_${{  github.ref_name }}_${{ matrix.arch.suffix }}_linux
       
     - name: create release
-      uses: ncipollo/release-action@v1
+      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
       if: github.event_name == 'push'
       with:
         artifacts: "build_linux${{ matrix.arch.suffix2 }}/onsyuri_*"

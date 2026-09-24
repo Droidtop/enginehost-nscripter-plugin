@@ -39,7 +39,6 @@ env:
   # newer NDK does not compile this engine at all. Pinned here and in
   # src/onsyuri_android/app/build.gradle, which have to agree.
   NDK_VERSION: "26.3.11579264"
-  BUNDLE_ID: dev.enginehost.nscripter.onsyuri.v1
 
 jobs:
   # The engine itself, proven to start and draw before anything is packaged.
@@ -49,7 +48,9 @@ jobs:
   headless:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Install what the Linux target links
         run: |
           set -eux
@@ -58,16 +59,16 @@ jobs:
       - run: tests/run_headless_game.sh
 
   bundle:
+    # Builds and packs the payload. No signing key and no write token here:
+    # Gradle, the engine's third-party sources and the actions below run in
+    # this job.
     needs: headless
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          repository: Droidtop/enginehost
-          ref: codex/engine-bundles
-          path: enginehost-tooling
-      - uses: actions/setup-java@v4
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "17"
@@ -76,7 +77,7 @@ jobs:
       # repository, so sdkmanager exits 1 and the job dies before Gradle runs.
       # The runner image already ships platform-tools and the command-line
       # tools; an empty list makes the action only put them on PATH.
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
           packages: ""
       - name: Install the pinned NDK
@@ -89,7 +90,7 @@ jobs:
       # that script, so an unchanged dependency set is a download, not six.
       - name: Cache the engine's third-party sources
         id: ports
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: thirdparty/port
           key: onsyuri-ports-v1-${{ hashFiles('script/_fetch.sh', 'src/onsyuri_android/app/cpp/CMakeLists.txt') }}
@@ -118,7 +119,7 @@ jobs:
           set -eux
           chmod +x ./gradlew
           ./gradlew :app:assembleRelease --no-daemon --stacktrace
-      - name: Check the APK before it is signed into a bundle
+      - name: Check the APK before it is packed into a bundle
         run: |
           set -eux
           apk="$(find src/onsyuri_android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
@@ -141,15 +142,12 @@ jobs:
           done
       - name: Check the wrapper against the engine it wraps
         run: python3 tests/check_engine_contract.py
-      - name: Build the signed Enginehost bundle
-        env:
-          ENGINEHOST_SIGNING_KEY_PEM: ${{ secrets.ENGINEHOST_SIGNING_KEY_PEM }}
+      - name: Pack the unsigned bundle inputs
         run: |
           set -eux
-          test -n "$ENGINEHOST_SIGNING_KEY_PEM"
-          mkdir -p build/payload build/output
-          cp "$APK" build/payload/runtime.apk
-          unzip -q "$APK" 'classes*.dex' 'lib/*' -d build/payload
+          mkdir -p build/unsigned/payload
+          cp "$APK" build/unsigned/payload/runtime.apk
+          unzip -q "$APK" 'classes*.dex' 'lib/*' -d build/unsigned/payload
           # The host class-loads exactly the dex files this metadata declares,
           # so a hard-coded single-entry list silently drops the rest of the
           # wrapper at launch. Declare what the payload actually contains, in
@@ -157,7 +155,7 @@ jobs:
           # of classes2.
           python3 - <<'DEXES'
           import json, pathlib, re
-          payload = pathlib.Path('build/payload')
+          payload = pathlib.Path('build/unsigned/payload')
           def order(p):
               m = re.fullmatch(r'classes(\d*)\.dex', p.name)
               return int(m.group(1) or 1)
@@ -169,45 +167,58 @@ jobs:
           meta.write_text(json.dumps(data, indent=2) + '\n')
           print('dexFiles =', data['dexFiles'])
           DEXES
-          cp enginehost/LICENSES.md build/payload/LICENSES.md
-          cp THIRD_PARTY.md build/payload/THIRD_PARTY.md
-          cp LICENSE build/payload/COPYING.onscripter
-          set +x  # keep the signing key out of the trace
-          printf '%s' "$ENGINEHOST_SIGNING_KEY_PEM" > build/signing-key.pem
-          set -x
-          python3 enginehost-tooling/scripts/build-engine-bundle.py \
-            --metadata enginehost/bundle-metadata.json --payload build/payload \
-            --private-key build/signing-key.pem \
-            --repository-key-document enginehost-public-key.json \
-            --output "build/output/$BUNDLE_ID.enginehost.tar.xz" \
-            --release-envelope build/output/enginehost-release.json \
-            --public-key-document build/output/enginehost-public-key.json
-          cmp enginehost-public-key.json build/output/enginehost-public-key.json
-      - uses: actions/upload-artifact@v4
+          cp enginehost/LICENSES.md build/unsigned/payload/LICENSES.md
+          cp THIRD_PARTY.md build/unsigned/payload/THIRD_PARTY.md
+          cp LICENSE build/unsigned/payload/COPYING.onscripter
+          cp enginehost/bundle-metadata.json build/unsigned/bundle-metadata.json
+          # A tar keeps the file modes the manifest signs; an artifact would not.
+          tar -cf build/unsigned.tar -C build/unsigned payload bundle-metadata.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: enginehost-nscripter-onsyuri-v1
-          path: build/output/*
+          name: enginehost-nscripter-onsyuri-v1-unsigned
+          path: build/unsigned.tar
           if-no-files-found: error
+
+  sign:
+    # Enginehost's one signing mechanism, pinned by commit: the key never
+    # shares a runner with the build (Enginehost
+    # docs/security/2026-09-24-ci-supply-chain.md).
+    needs: bundle
+    permissions:
+      contents: read
+    uses: Droidtop/enginehost/.github/workflows/sign-engine-bundle.yml@74162ce067087af604ee5a54edcd09eb9f872922
+    with:
+      tooling-sha: 74162ce067087af604ee5a54edcd09eb9f872922
+      unsigned-artifact: enginehost-nscripter-onsyuri-v1-unsigned
+      bundle: dev.enginehost.nscripter.onsyuri.v1.enginehost.tar.xz
+      artifact-name: enginehost-nscripter-onsyuri-v1
+    secrets:
+      ENGINEHOST_SIGNING_KEY_PEM: ${{ secrets.ENGINEHOST_SIGNING_KEY_PEM }}
 
   publish:
     # Promotion is deliberate: a manual dispatch names the channel. Stable
     # means used with real games on hardware; testing means it runs games
     # but has not been lived with. Enginehost offers each person the channel
     # they chose in Settings and every steadier one.
-    needs: bundle
+    needs: sign
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
+          name: enginehost-nscripter-onsyuri-v1
           path: release
       - name: Publish the signed bundle on the chosen channel
         env:
           GH_TOKEN: ${{ github.token }}
           CHANNEL: ${{ inputs.channel }}
           REQUESTED_TAG: ${{ inputs.tag }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
           bundle="$(find release -name '*.enginehost.tar.xz' -print -quit)"
@@ -237,21 +248,21 @@ jobs:
             testing) [[ "$tag" == *-testing ]] || tag="$tag-testing"; prerelease="--prerelease" ;;
             *) echo "unknown channel $CHANNEL" >&2; exit 1 ;;
           esac
-          notes="Signed Enginehost bundle \`$id\` on the **$CHANNEL** channel, built from \`${{ github.ref_name }}\` at \`${{ github.sha }}\` (build ${{ github.run_number }}). Install it through Enginehost rather than unpacking it by hand: the bundle is verified file by file at install time against the key pinned for this repository."
+          notes="Signed Enginehost bundle \`$id\` on the **$CHANNEL** channel, built from \`$REF_NAME\` at \`$SHA\` (build $RUN_NUMBER). Install it through Enginehost rather than unpacking it by hand: the bundle is verified file by file at install time against the key pinned for this repository."
           if [ "$CHANNEL" = testing ]; then
             # Rolling channel: the selected green build is the whole release,
             # including the tag target and not only clobbered asset bytes.
-            gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag 2>/dev/null || true
+            gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
             gh release create "$tag" "$bundle" "$envelope" ${keydoc:+"$keydoc"} \
-              --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --target "$SHA" \
               --title "$id ($CHANNEL)" $prerelease --notes "$notes"
-          elif gh release view "$tag" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+          elif gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" "$bundle" "$envelope" ${keydoc:+"$keydoc"} \
-              --repo "${{ github.repository }}" --clobber
-            gh release edit "$tag" --repo "${{ github.repository }}" --notes "$notes"
+              --clobber
+            gh release edit "$tag" --notes "$notes"
           else
             gh release create "$tag" "$bundle" "$envelope" ${keydoc:+"$keydoc"} \
-              --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --target "$SHA" \
               --title "$id ($CHANNEL)" $prerelease --notes "$notes"
           fi
 
@@ -259,18 +270,23 @@ jobs:
     # Every green push that produced a signed bundle is published as-is on the
     # unstable channel, replacing the previous one, so a person who opted into
     # unstable in Enginehost sees each build the moment CI is done with it.
-    needs: bundle
+    needs: sign
     if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
+          name: enginehost-nscripter-onsyuri-v1
           path: release
       - name: Publish the signed bundle on the unstable channel
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -euo pipefail
           bundle="$(find release -name '*.enginehost.tar.xz' -print -quit)"
@@ -290,9 +306,9 @@ jobs:
           json.dump(data, open(path, "w"), indent=2)
           PY
           tag="$(printf '%s' "$id" | sed 's/^dev\.enginehost\.//; s/\./-/g')-unstable"
-          notes="Signed Enginehost bundle \`$id\` on the **unstable** channel, built from \`${{ github.ref_name }}\` at \`${{ github.sha }}\` (build ${{ github.run_number }}). Install it through Enginehost rather than unpacking it by hand: the bundle is verified file by file at install time against the key pinned for this repository."
+          notes="Signed Enginehost bundle \`$id\` on the **unstable** channel, built from \`$REF_NAME\` at \`$SHA\` (build $RUN_NUMBER). Install it through Enginehost rather than unpacking it by hand: the bundle is verified file by file at install time against the key pinned for this repository."
           # Rolling: the newest green build of the line is the whole release.
-          gh release delete "$tag" --repo "${{ github.repository }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release delete "$tag" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$tag" "$bundle" "$envelope" ${keydoc:+"$keydoc"} \
-            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --target "$SHA" \
             --title "$id (unstable)" --prerelease --notes "$notes"

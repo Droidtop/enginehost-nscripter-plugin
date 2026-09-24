@@ -3,14 +3,18 @@ on:
   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
   pull_request:
 
+# Read-only by default; only the jobs that create releases may write
+# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build_darwin_aarch64:
+    permissions:
+      contents: write
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
 
       - name: Install dependencies
         run: |
@@ -28,7 +32,7 @@ jobs:
           mv onsyuri onsyuri_${{  github.ref_name }}_aarch64_darwin
 
       - name: create release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
         if: github.event_name == 'push'
         with:
           artifacts: "./build_darwin/onsyuri_${{  github.ref_name }}_aarch64_darwin"
