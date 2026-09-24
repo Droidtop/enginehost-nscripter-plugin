@@ -49,22 +49,27 @@ jobs:
         path: ${{ env.EMSDK_HOME }}
     
     - name: build onsyuri_web
+      env:
+        REF_NAME: ${{ github.ref_name }}
       run: |
-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
+        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
+          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
+          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
         fi
         cd script 
         EMCSDK=${{ env.EMCSDK }} bash ./cross_web.sh
     
     - name: prepare release
       if: github.event_name == 'push'
+      env:
+        REF_NAME: ${{ github.ref_name }}
       run: |
         cd build_web
         mkdir ${{ env.BUILD_NAME }} 
         cp onsyuri{.html,.js,.wasm} ${{ env.BUILD_NAME }}/ 
         cp onsyuri_index.py ${{ env.BUILD_NAME }}/
         7z a -t7z -mtc=on -ms=off -mx=5 -m0=lzma2 ${{ env.BUILD_NAME }}.7z ${{ env.BUILD_NAME }} 
-        mv ${{ env.BUILD_NAME }}.7z onsyuri_${{  github.ref_name }}_web.7z
+        mv ${{ env.BUILD_NAME }}.7z onsyuri_${REF_NAME}_web.7z
     
     - name: create release
       uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1

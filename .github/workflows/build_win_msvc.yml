@@ -44,7 +44,9 @@ jobs:
     
     - name: prepare release
       if: github.event_name == 'push'
-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_x86_win.exe
+      env:
+        REF_NAME: ${{ github.ref_name }}
+      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_x86_win.exe"
       
     - name: create release
       uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
@@ -91,7 +93,9 @@ jobs:
     
     - name: prepare release
       if: github.event_name == 'push'
-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_amd64_win.exe
+      env:
+        REF_NAME: ${{ github.ref_name }}
+      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_amd64_win.exe"
       
     - name: create release
       if: github.event_name == 'push'
@@ -138,7 +142,9 @@ jobs:
     
     - name: prepare release
       if: github.event_name == 'push'
-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_arm64_win.exe
+      env:
+        REF_NAME: ${{ github.ref_name }}
+      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_arm64_win.exe"
       
     - name: create release
       if: github.event_name == 'push'

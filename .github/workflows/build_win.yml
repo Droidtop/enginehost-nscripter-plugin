@@ -52,18 +52,23 @@ jobs:
         platform: ${{ matrix.arch.suffix }}
     
     - name: build onsyuri_${{ matrix.arch.suffix }}_win.exe
+      env:
+        REF_NAME: ${{ github.ref_name }}
       run: |
-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
+        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
+          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
+          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
         fi
         cd script 
         SKIP_PORTS=yes bash cross_mingw${{ matrix.arch.suffix2 }}.sh
     
     - name: prepare release
       if: github.event_name == 'push'
+      env:
+        REF_NAME: ${{ github.ref_name }}
       run: |
         cd build_mingw${{ matrix.arch.suffix2 }}
-        mv onsyuri.exe onsyuri_${{  github.ref_name }}_${{ matrix.arch.suffix }}_win.exe
+        mv onsyuri.exe onsyuri_${REF_NAME}_${{ matrix.arch.suffix }}_win.exe
       
     - name: create release
       uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
