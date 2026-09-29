@@ -1,7 +1,7 @@
 {
   "bundleId": "dev.enginehost.nscripter.onsyuri.v1",
   "engine": "nscripter",
-  "pluginVersion": "0.9.0",
+  "pluginVersion": "0.9.1",
   "apiVersion": 1,
   "entrypoint": "com.yuri.onscripter.ONScripter",
   "runtimeTransport": "android-activity",
