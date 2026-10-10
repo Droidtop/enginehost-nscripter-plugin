@@ -31,6 +31,7 @@ set(SOURCES
   ../onsyuri/ONScripter_rmenu.cpp
   ../onsyuri/ONScripter_sound.cpp
   ../onsyuri/ONScripter_text.cpp
+  ../onsyuri/onscripter_options.cpp
   ../onsyuri/Parallel.cpp
   ../onsyuri/resize_image.cpp
   ../onsyuri/SarReader.cpp

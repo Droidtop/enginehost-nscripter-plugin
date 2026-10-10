@@ -15,6 +15,8 @@
 #include "SDL_libretro.h"
 #include "gbk2utf16.h"
 #include "sjis2utf16.h"
+#include "onscripter_options.h"
+#include <vector>
 
 static void fallback_log(enum retro_log_level level, const char* fmt, ...);
 static retro_log_printf_t log_cb = fallback_log;
@@ -240,6 +242,25 @@ retro_load_game(const struct retro_game_info* game)
     // Ignore SDL_AUDIODRIVER and SDL_VIDEODRIVER.
     SDL_SetHintWithPriority(SDL_HINT_AUDIODRIVER, "libretro", SDL_HINT_OVERRIDE);
     SDL_SetHintWithPriority(SDL_HINT_VIDEODRIVER, "libretro", SDL_HINT_OVERRIDE);
+
+    // A frontend that knows ONScripter's command line (Enginehost's, which
+    // runs this core in its sandbox) passes it, one argument per line, as
+    // the value of this variable; RetroArch has no such variable.
+    struct retro_variable command_line = { "onsyuri_enginehost_arguments", NULL };
+    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &command_line) && command_line.value) {
+        std::vector<std::string> parts;
+        std::string all = command_line.value;
+        size_t start = 0;
+        while (start <= all.size()) {
+            size_t end = all.find('\n', start);
+            if (end == std::string::npos) end = all.size();
+            if (end > start) parts.push_back(all.substr(start, end - start));
+            start = end + 1;
+        }
+        std::vector<char*> argv;
+        for (auto& part : parts) argv.push_back(&part[0]);
+        parseOption((int)argv.size(), argv.data());
+    }
 
     if (ons.openScript() != 0)
         return false;
