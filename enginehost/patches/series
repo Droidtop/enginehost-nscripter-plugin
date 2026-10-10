@@ -1,0 +1,5 @@
+# Engine-side changes the wrapper needs, applied by plugin-line compose in this
+# order to the line's upstream commit; "<version range> <patch>" (Droidtop/tracker#324).
+# Supply-chain rule for upstream's own workflows in this repository: actions
+# pinned by commit, the tag name passed through env (f790f09, 72021b4).
+* upstream-workflows-supply-chain.patch

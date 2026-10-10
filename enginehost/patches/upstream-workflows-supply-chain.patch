@@ -1,0 +1,502 @@
+diff --git a/.github/workflows/build_android.yml b/.github/workflows/build_android.yml
+index ea476e2..8a86d06 100644
+--- a/.github/workflows/build_android.yml
++++ b/.github/workflows/build_android.yml
+@@ -3,16 +3,22 @@ on:
+   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
+   pull_request: 
+ 
++# Read-only by default; only the job that creates the release may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+ 
+ jobs:
+   build_android:
+     runs-on: ubuntu-24.04
++    permissions:
++      contents: write
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
++      with:
++        persist-credentials: false
+    
+-    - uses: actions/setup-java@v3
++    - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3
+       with:
+         java-version: '17'
+         distribution: 'temurin'
+@@ -24,14 +30,17 @@ jobs:
+         SIGN_KEY_PASS: ${{ secrets.SIGN_KEY_PASS }}
+         SIGN_STORE_PASS: ${{ secrets.SIGN_STORE_PASS }}
+         SIGN_JKS_BASE64: ${{ secrets.SIGN_JKS_BASE64 }}
++        # The ref name reaches shell and sed only as data, never as script.
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+         # openssl base64 < sign.jks | tr -d '\n' | tee sign.txt
+         if [ -n "$SIGN_JKS_BASE64" ]; then
+           echo "$SIGN_JKS_BASE64" | base64 --decode > src/onsyuri_android/app/sign.jks
+           ls -la src/onsyuri_android/app
+         fi
+-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
+-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
++        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
++          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
++          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
+         fi
+         cd script 
+         bash ./cross_android.sh
+@@ -40,10 +49,12 @@ jobs:
+ 
+     - name: prepare to release
+       if: github.event_name == 'push'
+-      run: cp ./build_android/outputs/apk/release/*.apk onsyuri_${{  github.ref_name }}_android.apk
++      env:
++        REF_NAME: ${{ github.ref_name }}
++      run: cp ./build_android/outputs/apk/release/*.apk "onsyuri_${REF_NAME}_android.apk"
+     
+     - name: create release
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       if: github.event_name == 'push'
+       with:
+         artifacts: "onsyuri_${{  github.ref_name }}_android.apk"
+diff --git a/.github/workflows/build_darwin.yml b/.github/workflows/build_darwin.yml
+index 9c29498..0058326 100644
+--- a/.github/workflows/build_darwin.yml
++++ b/.github/workflows/build_darwin.yml
+@@ -3,14 +3,18 @@ on:
+   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
+   pull_request:
+ 
++# Read-only by default; only the jobs that create releases may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+ 
+ jobs:
+   build_darwin_aarch64:
++    permissions:
++      contents: write
+     runs-on: macos-14
+     steps:
+-      - uses: actions/checkout@v3
++      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+ 
+       - name: Install dependencies
+         run: |
+@@ -23,12 +27,14 @@ jobs:
+ 
+       - name: prepare release
+         if: github.event_name == 'push'
++        env:
++          REF_NAME: ${{ github.ref_name }}
+         run: |
+           cd build_darwin
+-          mv onsyuri onsyuri_${{  github.ref_name }}_aarch64_darwin
++          mv onsyuri onsyuri_${REF_NAME}_aarch64_darwin
+ 
+       - name: create release
+-        uses: ncipollo/release-action@v1
++        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+         if: github.event_name == 'push'
+         with:
+           artifacts: "./build_darwin/onsyuri_${{  github.ref_name }}_aarch64_darwin"
+diff --git a/.github/workflows/build_linux.yml b/.github/workflows/build_linux.yml
+index cb54541..4a69f85 100644
+--- a/.github/workflows/build_linux.yml
++++ b/.github/workflows/build_linux.yml
+@@ -3,18 +3,20 @@ on:
+   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
+   pull_request: 
+ 
++# Read-only by default; only the jobs that create releases may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+ 
+ jobs:
+   install_thirdparty_build:
+     runs-on: ubuntu-22.04 # default batch, powershell
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: check or download thirdparty_build cache
+       id: check_thirdparty_build
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         path: ./thirdparty
+         key: thirdparty_build
+@@ -26,6 +28,8 @@ jobs:
+         tar xvzf thirdparty_build.tar.gz
+ 
+   build_linux:
++    permissions:
++      contents: write
+     strategy:
+       matrix: 
+         arch: [{suffix2: 32, suffix: x86}, {suffix2: 64, suffix: x64}, {suffix2: a32, suffix: arm32}, {suffix2: a64, suffix: arm64}]
+@@ -33,10 +37,10 @@ jobs:
+     runs-on: ubuntu-22.04
+     needs: install_thirdparty_build
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: get thirdparty_build cache
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         key: thirdparty_build
+         path: ./thirdparty
+@@ -50,21 +54,26 @@ jobs:
+         sudo apt-get -y install crossbuild-essential-arm64
+     
+     - name: build onsyuri_${{ matrix.arch.suffix }}_linux
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
+-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
++        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
++          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
++          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
+         fi
+         cd script
+         SKIP_PORTS=yes bash cross_linux${{ matrix.arch.suffix2 }}.sh
+     
+     - name: prepare release
+       if: github.event_name == 'push'
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+         cd build_linux${{ matrix.arch.suffix2 }}
+-        mv onsyuri onsyuri_${{  github.ref_name }}_${{ matrix.arch.suffix }}_linux
++        mv onsyuri onsyuri_${REF_NAME}_${{ matrix.arch.suffix }}_linux
+       
+     - name: create release
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       if: github.event_name == 'push'
+       with:
+         artifacts: "build_linux${{ matrix.arch.suffix2 }}/onsyuri_*"
+diff --git a/.github/workflows/build_web.yml b/.github/workflows/build_web.yml
+index b2bec6f..87179e3 100644
+--- a/.github/workflows/build_web.yml
++++ b/.github/workflows/build_web.yml
+@@ -3,8 +3,10 @@ on:
+   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
+   pull_request: 
+ 
++# Read-only by default; only the jobs that create releases may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+   
+ env:
+   EMSDK_HOME: /opt/emsdk
+@@ -14,11 +16,11 @@ jobs:
+   install_emsdk:
+     runs-on: ubuntu-24.04 # default batch, powershell
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: check or make emsdk cache
+       id: check_emsdk
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         path: ${{ env.EMSDK_HOME }}
+         key: emsdk
+@@ -33,37 +35,44 @@ jobs:
+         embuilder build sdl2 sdl2_ttf sdl2_image sdl2_mixer bzip2 ogg vorbis mpg123
+ 
+   build_web:
++    permissions:
++      contents: write
+     runs-on: ubuntu-24.04
+     needs: install_emsdk
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: get emsdk cache
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         key: emsdk
+         path: ${{ env.EMSDK_HOME }}
+     
+     - name: build onsyuri_web
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
+-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
++        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
++          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
++          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
+         fi
+         cd script 
+         EMCSDK=${{ env.EMCSDK }} bash ./cross_web.sh
+     
+     - name: prepare release
+       if: github.event_name == 'push'
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+         cd build_web
+         mkdir ${{ env.BUILD_NAME }} 
+         cp onsyuri{.html,.js,.wasm} ${{ env.BUILD_NAME }}/ 
+         cp onsyuri_index.py ${{ env.BUILD_NAME }}/
+         7z a -t7z -mtc=on -ms=off -mx=5 -m0=lzma2 ${{ env.BUILD_NAME }}.7z ${{ env.BUILD_NAME }} 
+-        mv ${{ env.BUILD_NAME }}.7z onsyuri_${{  github.ref_name }}_web.7z
++        mv ${{ env.BUILD_NAME }}.7z onsyuri_${REF_NAME}_web.7z
+     
+     - name: create release
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       if: github.event_name == 'push'
+       with:
+         artifacts: "./build_web/onsyuri_${{  github.ref_name }}_web.7z"
+diff --git a/.github/workflows/build_win.yml b/.github/workflows/build_win.yml
+index 0c4eefb..8b0f0a2 100644
+--- a/.github/workflows/build_win.yml
++++ b/.github/workflows/build_win.yml
+@@ -3,18 +3,20 @@ on:
+   push: {tags:  ['v*']} #  Push events to matching v*, i.e. v1.0, v20.15.10
+   pull_request: 
+   
++# Read-only by default; only the jobs that create releases may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+ 
+ jobs:
+   install_thirdparty_build:
+     runs-on: ubuntu-22.04 # default batch, powershell
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: check or download thirdparty_build cache
+       id: check_thirdparty_build
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         path: ./thirdparty
+         key: thirdparty_build
+@@ -27,6 +29,8 @@ jobs:
+         tar xvzf thirdparty_build.tar.gz
+ 
+   build_win:
++    permissions:
++      contents: write
+     strategy:
+       matrix: 
+         arch: [{suffix2: 32, suffix: x86}, {suffix2: 64, suffix: x64}]
+@@ -34,35 +38,40 @@ jobs:
+     runs-on: ubuntu-22.04
+     needs: install_thirdparty_build
+     steps:
+-    - uses: actions/checkout@v3
++    - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: get thirdparty_build cache
+-      uses: actions/cache@v3
++      uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c # v3
+       with: 
+         key: thirdparty_build
+         path: ./thirdparty
+     
+     - name: Set up MinGW
+-      uses: egor-tensin/setup-mingw@v2
++      uses: egor-tensin/setup-mingw@84c781b557efd538dec66bde06988d81cd3138cf # v2
+       with:
+         platform: ${{ matrix.arch.suffix }}
+     
+     - name: build onsyuri_${{ matrix.arch.suffix }}_win.exe
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+-        if [ -z "$(echo ${{  github.ref_name }} | grep merge)" ]; then 
+-          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "${{  github.ref_name }}"/g' src/onsyuri/version.h
++        if [ -z "$(printf '%s\n' "$REF_NAME" | grep merge)" ]; then 
++          version="$(printf '%s' "$REF_NAME" | sed 's/[\/&]/\\&/g')"
++          sed -i -E 's/#define ONS_YURI_VERSION "(.+?)"/#define ONS_YURI_VERSION "'"$version"'"/g' src/onsyuri/version.h
+         fi
+         cd script 
+         SKIP_PORTS=yes bash cross_mingw${{ matrix.arch.suffix2 }}.sh
+     
+     - name: prepare release
+       if: github.event_name == 'push'
++      env:
++        REF_NAME: ${{ github.ref_name }}
+       run: |
+         cd build_mingw${{ matrix.arch.suffix2 }}
+-        mv onsyuri.exe onsyuri_${{  github.ref_name }}_${{ matrix.arch.suffix }}_win.exe
++        mv onsyuri.exe onsyuri_${REF_NAME}_${{ matrix.arch.suffix }}_win.exe
+       
+     - name: create release
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       if: github.event_name == 'push'
+       with:
+         artifacts: "build_mingw${{ matrix.arch.suffix2 }}/onsyuri_*.exe"
+diff --git a/.github/workflows/build_win_msvc.yml b/.github/workflows/build_win_msvc.yml
+index 6a46367..1849e2d 100644
+--- a/.github/workflows/build_win_msvc.yml
++++ b/.github/workflows/build_win_msvc.yml
+@@ -2,11 +2,15 @@ name: build windows MSVC x86, x64, ARM64
+ on:
+   workflow_dispatch:
+ 
++# Read-only by default; only the jobs that create releases may write
++# (Enginehost docs/security/2026-09-24-ci-supply-chain.md).
+ permissions:
+-  contents: write
++  contents: read
+ 
+ jobs:
+   build_i386:
++    permissions:
++      contents: write
+     runs-on: windows-2022
+     env:
+       BUILD_TYPE: Release
+@@ -17,10 +21,10 @@ jobs:
+         working-directory: ${{github.workspace}}
+     steps:
+     - name: checkout code
+-      uses: actions/checkout@v3
++      uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: run vcpkg
+-      uses: lukka/run-vcpkg@v11.5
++      uses: lukka/run-vcpkg@5e0cab206a5ea620130caf672fce3e4a6b5666a1 # v11.5
+       with: 
+         vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
+         runVcpkgInstall: true
+@@ -33,17 +37,19 @@ jobs:
+       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+     
+     - name: Upload artifact
+-      uses: actions/upload-artifact@v4
++      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+       with:
+         name: onsyuri-${{env.VCPKG_TRIPLET}}
+         path: ${{github.workspace}}/build/${{env.BUILD_TYPE}}
+     
+     - name: prepare release
+       if: github.event_name == 'push'
+-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_x86_win.exe
++      env:
++        REF_NAME: ${{ github.ref_name }}
++      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_x86_win.exe"
+       
+     - name: create release
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       if: github.event_name == 'push'
+       with:
+         artifacts: ${{github.workspace}}/onsyuri_${{github.ref_name}}_x86_win.exe
+@@ -51,6 +57,8 @@ jobs:
+         token: ${{secrets.GITHUB_TOKEN}}
+ 
+   build_amd64:
++    permissions:
++      contents: write
+     runs-on: windows-2022
+     env:
+       BUILD_TYPE: Release
+@@ -61,10 +69,10 @@ jobs:
+         working-directory: ${{github.workspace}}
+     steps:
+     - name: checkout code
+-      uses: actions/checkout@v3
++      uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: run vcpkg
+-      uses: lukka/run-vcpkg@v10.7
++      uses: lukka/run-vcpkg@97a66cd144358612fab189bf2836619f392ef083 # v10.7
+       with: 
+         vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
+         runVcpkgFormatString: '[`install`, `--recurse`, `--clean-after-build`, `--x-install-root`, `$[env.VCPKG_INSTALLED_DIR]`, `--triplet`, `x64-windows-static`]'
+@@ -78,24 +86,28 @@ jobs:
+       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+     
+     - name: Upload artifact
+-      uses: actions/upload-artifact@v4
++      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+       with:
+         name: onsyuri-${{env.VCPKG_TRIPLET}}
+         path: ${{github.workspace}}/build/${{env.BUILD_TYPE}}
+     
+     - name: prepare release
+       if: github.event_name == 'push'
+-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_amd64_win.exe
++      env:
++        REF_NAME: ${{ github.ref_name }}
++      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_amd64_win.exe"
+       
+     - name: create release
+       if: github.event_name == 'push'
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       with:
+         artifacts: ${{github.workspace}}/onsyuri_${{github.ref_name}}_amd64_win.exe
+         allowUpdates: "true"
+         token: ${{secrets.GITHUB_TOKEN}}
+ 
+   build_arm64:
++    permissions:
++      contents: write
+     runs-on: windows-2022
+     env:
+       BUILD_TYPE: Release
+@@ -106,10 +118,10 @@ jobs:
+         working-directory: ${{github.workspace}}
+     steps:
+     - name: checkout code
+-      uses: actions/checkout@v3
++      uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+     
+     - name: run vcpkg
+-      uses: lukka/run-vcpkg@v10.7
++      uses: lukka/run-vcpkg@97a66cd144358612fab189bf2836619f392ef083 # v10.7
+       with: 
+         vcpkgGitCommitId: ce613c41372b23b1f51333815feb3edd87ef8a8b
+         runVcpkgFormatString: '[`install`, `--recurse`, `--clean-after-build`, `--x-install-root`, `$[env.VCPKG_INSTALLED_DIR]`, `--triplet`, `${{env.VCPKG_TRIPLET}}`]'
+@@ -123,18 +135,20 @@ jobs:
+       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+     
+     - name: Upload artifact
+-      uses: actions/upload-artifact@v4
++      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+       with:
+         name: onsyuri-${{env.VCPKG_TRIPLET}}
+         path: ${{github.workspace}}/build/${{env.BUILD_TYPE}}
+     
+     - name: prepare release
+       if: github.event_name == 'push'
+-      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe ${{github.workspace}}/onsyuri_${{github.ref_name}}_arm64_win.exe
++      env:
++        REF_NAME: ${{ github.ref_name }}
++      run: mv ${{github.workspace}}/build/${{env.BUILD_TYPE}}/onsyuri.exe "${{github.workspace}}/onsyuri_$($env:REF_NAME)_arm64_win.exe"
+       
+     - name: create release
+       if: github.event_name == 'push'
+-      uses: ncipollo/release-action@v1
++      uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+       with:
+         artifacts: ${{github.workspace}}/onsyuri_${{github.ref_name}}_arm64_win.exe
+         allowUpdates: "true"
