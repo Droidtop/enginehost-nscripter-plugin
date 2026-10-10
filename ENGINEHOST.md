@@ -55,20 +55,28 @@ so every later diff is legible as ours.
 
 ## What the wrapper does
 
-`src/onsyuri_android/app/java/com/yuri/onscripter/ONScripter.java` is the whole
-of it. It stays in upstream's package because the engine's JNI entry points are
-exported as `Java_com_yuri_onscripter_ONScripter_*`; renaming the class renames
-native symbols, so the wrapper bends instead.
-
-It turns the Enginehost launch into options the engine already had:
+The game runs in Enginehost's sandbox (`isolatable`; Enginehost
+`docs/engine-sandbox.md`, "Engines with a libretro core"). The engine's own
+libretro core (`src/onsyuri_libretro`), Enginehost's libretro frontend and its
+file layer (`plugin-native/`, copied verbatim from Enginehost) are one library,
+`enginehost/android/CMakeLists.txt`; the core draws in software, which is all an
+isolated process can do. `enginehost/android/java/.../OnsyuriPlugin.java` is the
+entry point. It turns the Enginehost launch into options the engine already had:
 
 | Enginehost | ONScripter |
 | --- | --- |
-| `dev.enginehost.runtime.PATH` | `--root` |
-| `dev.enginehost.runtime.SAVE_PATH` | not used: this engine has no system save location |
-| `dev.enginehost.runtime.ENGINE_CONTEXT` | validated: `nscripter` or `onscripter` |
-| `dev.enginehost.runtime.OPTIONS` | the options in `enginehost/bundle-metadata.json` |
-| `dev.enginehost.runtime.CONTROLLER_BINDINGS` | the engine's own keys (below) |
+| the game folder | the core's content, and `--root` |
+| the save folder | not used: this engine has no system save location |
+| the engine context | validated: `nscripter` or `onscripter` |
+| the options | the options in `enginehost/bundle-metadata.json`, as ONScripter's own command line (`src/onsyuri/onscripter_options.cpp`, the parser `main()` uses too), passed through the core's `onsyuri_enginehost_arguments` variable; the script encoding is the core's own `onsyuri_script_encoding` |
+| the controller actions | RetroPad buttons whose keys are the engine's (below) |
+
+The font is the person's choice, else the game's `default.ttf` (looked up
+through the host's broker, the one view of the game folder the sandbox has),
+else a Japanese font on the device. Inside the sandbox only the game and save
+folders can be read, so a `fontFile`, `registryFile`, `dllFile` or `keyExeFile`
+option pointing elsewhere is not reachable. `src/onsyuri_android` is upstream's
+standalone Android app, kept as upstream has it and not built.
 
 Saves stay where NScripter puts them: beside the game (`save<n>.dat`,
 `gloval.sav`, `envdata`), or in the folder the game's own `savedir` command
@@ -95,26 +103,15 @@ ship one; nothing in Enginehost reads it, and the signed manifest's
 
 ## Controls
 
-ONScripter has an input model of its own, and this plugin uses it rather than
-adding a second one.
+**Touch works with no pad at all.** The frontend hands touches to the core as
+its pointer, and the core turns them into the mouse ONScripter's own pointer
+handling reads: tap to advance, and the game's own right-click gesture where a
+game has one.
 
-**Touch works with no pad at all.** SDL delivers touches as mouse events and
-ONScripter's own pointer handling reads them: tap to advance, and the game's
-own right-click gesture where a game has one.
-
-**With a pad, the engine already knows what to do.** It opens an SDL game
-controller (`ONScripter.cpp:157-159`) and maps each button to one of its
-keyboard keys in `transControllerButton`
-(`ONScripter_event.cpp:138-163`). While Enginehost's **Bypass controller
-mappings** is on for this scope — which is the recommended default for this
-engine, exactly as it is for Ren'Py, Godot and EasyRPG — no
-`CONTROLLER_BINDINGS` extra arrives, this plugin never touches a pad event, and
-that table is what a person gets.
-
-**With bypass off**, Enginehost sends a map and the plugin translates each
-action into the key the engine's own table would have pressed. The action set
-below is what Enginehost should offer for the `nscripter` scope; the default
-column is not a preference, it is `transControllerButton` read straight down.
+**With a pad**, each Enginehost action presses the RetroPad button whose key, in
+the core's own table (`PumpJoypadEvents` in `src/onsyuri_libretro/libretro.cpp`),
+is the engine key below. `tests/check_engine_contract.py` reads that table, this
+one and `OnsyuriPlugin.ACTION_BUTTONS` and fails CI when they disagree.
 
 | action id | what the engine does | engine key | default |
 | --- | --- | --- | --- |
@@ -144,9 +141,6 @@ Four notes on that table, each from the engine rather than from taste:
   so there is nothing `left_x` could be read as, and an analogue binding is
   dropped rather than quietly turned into a press. A hat D-pad still works: it
   arrives as a signed axis binding and is pressed and released as a button is.
-- **There is no fallback table in the plugin.** No map means the engine's own
-  table applies; a second set of defaults beside it would be two answers to one
-  question.
 - **Select and Start carry actions, and Select + Start does not.** That
   combination is Enginehost's in-game menu and never reaches an engine.
 
@@ -160,11 +154,14 @@ a key that means something else.
 
 ## Building
 
-CI (`.github/workflows/android-plugin.yml`) fetches the engine's third-party
-sources with the repository's own `script/_fetch.sh`, builds the runtime APK
-for `arm64-v8a` and `x86_64`, and packs and signs the Enginehost bundle. The
-NDK is pinned to 26.3.11579264: SDL 2.26.3 calls `ALooper_pollAll`, which NDK 27
-removed, so a newer NDK does not compile this engine.
+CI (`.github/workflows/android-plugin.yml`) fetches the libretro core's
+third-party sources at the commits upstream pins (SDL, SDL_image, SDL_mixer,
+SDL_ttf with FreeType, bzip2, Lua), builds the core as static archives for
+`arm64-v8a` and `x86_64` with NDK 26.3.11579264, links them with the frontend
+into `libnscripter_enginehost.so`, compiles `OnsyuriPlugin` against Enginehost's
+API, checks the contract above, and packs and signs the bundle. The Linux
+target (`tests/run_headless_game.sh`) still proves the engine starts and draws
+before any of that.
 
 ## Licence
 

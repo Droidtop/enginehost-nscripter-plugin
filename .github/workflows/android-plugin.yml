@@ -35,9 +35,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # SDL 2.26.3 calls ALooper_pollAll, which NDK 27 removed outright, so a
-  # newer NDK does not compile this engine at all. Pinned here and in
-  # src/onsyuri_android/app/build.gradle, which have to agree.
+  # The NDK the sandboxed plugin library is built with.
   NDK_VERSION: "26.3.11579264"
 
 jobs:
@@ -60,7 +58,7 @@ jobs:
 
   bundle:
     # Builds and packs the payload. No signing key and no write token here:
-    # Gradle, the engine's third-party sources and the actions below run in
+    # the engine's third-party sources, the NDK and the actions below run in
     # this job.
     needs: headless
     runs-on: ubuntu-24.04
@@ -72,11 +70,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      # 2026-09-16: setup-android's default package list still asks for the
-      # obsolete "tools" SDK package, which Google has withdrawn from the
-      # repository, so sdkmanager exits 1 and the job dies before Gradle runs.
-      # The runner image already ships platform-tools and the command-line
-      # tools; an empty list makes the action only put them on PATH.
       - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
         with:
           packages: ""
@@ -85,88 +78,73 @@ jobs:
           set -eux
           yes | sdkmanager --install "ndk;$NDK_VERSION" > /dev/null
           test -d "$ANDROID_HOME/ndk/$NDK_VERSION"
-      # The engine builds SDL2 and its satellites from source, from the exact
-      # upstream archives its own fetch script names. Cached on the content of
-      # that script, so an unchanged dependency set is a download, not six.
-      - name: Cache the engine's third-party sources
-        id: ports
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: thirdparty/port
-          key: onsyuri-ports-v1-${{ hashFiles('script/_fetch.sh', 'src/onsyuri_android/app/cpp/CMakeLists.txt') }}
-      - name: Fetch the engine's third-party sources
-        if: steps.ports.outputs.cache-hit != 'true'
+      - name: Fetch the libretro core's third-party sources
+        # The commits upstream OnscripterYuri v0.7.7beta pins for
+        # src/onsyuri_libretro/deps (its submodules; this fork carries the
+        # core's own config files for them but not the gitlinks).
+        working-directory: src/onsyuri_libretro/deps
         run: |
           set -eux
-          cd script
-          export CMAKELISTS_PATH="$GITHUB_WORKSPACE"
-          . ./_fetch.sh
-          fetch_bz2
-          fetch_lua
-          fetch_sdl2
-          fetch_sdl2_image
-          fetch_sdl2_ttf
-          fetch_sdl2_mixer
-          # SDL2_image ships its external dependencies as submodules rather
-          # than in the release tarball. Only jpeg is needed: the Android
-          # configuration builds it as its own library and leaves SDL2_image's
-          # other decoders to the built-in stb_image.
-          cd "$GITHUB_WORKSPACE/thirdparty/port/SDL2_image-2.6.3"
-          git clone --depth 1 --branch v9e-SDL https://github.com/libsdl-org/jpeg.git external/jpeg
-      - name: Build the runtime APK
-        working-directory: src/onsyuri_android
+          fetch() {
+            git init -q "$1"
+            git -C "$1" remote add origin "$2"
+            git -C "$1" fetch -q --depth 1 origin "$3"
+            git -C "$1" checkout -q FETCH_HEAD
+          }
+          fetch SDL https://github.com/libsdl-org/SDL.git da19244f7f529c9a4bfe3f1d62d2c002afd91f1e
+          fetch SDL_image https://github.com/libsdl-org/SDL_image.git 0583551f2f504bd446d07089423020cd358e4037
+          fetch SDL_mixer https://github.com/libsdl-org/SDL_mixer.git a294d5827dd0bf13e6f972d6441c96f1b752cc6d
+          fetch SDL_ttf https://github.com/libsdl-org/SDL_ttf.git 6c5ae379ed593ca8cb65bfabb8bc816c03e9579d
+          git -C SDL_ttf submodule update --init --depth 1 external/freetype
+          fetch bzip2 https://github.com/libarchive/bzip2.git 1ea1ac188ad4b9cb662e3f8314673c63df95a589
+          fetch lua https://github.com/lua/lua.git 75ea9ccbea7c4886f30da147fb67b693b2624c26
+      - name: Build the libretro core into the sandboxed plugin library
+        # The core as static archives (its CMake only works top-level), then
+        # enginehost/android/CMakeLists.txt links them with Enginehost's
+        # libretro frontend and file layer: one library per ABI, C++ runtime
+        # inside. Runs in Enginehost's isolated process (OnsyuriPlugin).
         run: |
           set -eux
-          chmod +x ./gradlew
-          ./gradlew :app:assembleRelease --no-daemon --stacktrace
-      - name: Check the APK before it is packed into a bundle
-        run: |
-          set -eux
-          apk="$(find src/onsyuri_android/app/build/outputs/apk/release -name '*.apk' -print -quit)"
-          test -f "$apk"
-          echo "APK=$apk" >> "$GITHUB_ENV"
-          aapt="$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -1)"
-          # The entrypoint the bundle metadata names has to be in the table the
-          # host materialises it from, under the exact class name.
-          "$aapt" dump xmltree --file AndroidManifest.xml "$apk" | grep -q 'com.yuri.onscripter.ONScripter'
-          # Both ABIs are the rule, not a preference: the payload step copies
-          # lib/ wholesale out of this APK, so a missing ABI is a bundle that
-          # installs and then fails to load on half the devices.
-          unzip -l "$apk" | grep -q lib/arm64-v8a/libonsyuri.so
-          unzip -l "$apk" | grep -q lib/x86_64/libonsyuri.so
-          # The engine's own satellites travel with it, both ways.
-          for abi in arm64-v8a x86_64; do
-            for lib in libSDL2 libSDL2_image libSDL2_mixer libSDL2_ttf liblua libjpeg libbz2; do
-              unzip -l "$apk" | grep -q "lib/$abi/$lib.so"
-            done
+          toolchain="$ANDROID_HOME/ndk/$NDK_VERSION/build/cmake/android.toolchain.cmake"
+          for ABI in arm64-v8a x86_64; do
+            common=(-G Ninja -DCMAKE_TOOLCHAIN_FILE="$toolchain" -DANDROID_ABI="$ABI"
+                    -DANDROID_PLATFORM=android-26 -DANDROID_STL=c++_static -DCMAKE_BUILD_TYPE=Release)
+            cmake -S src/onsyuri_libretro -B "build/onsyuri-$ABI" "${common[@]}" -DLIBRETRO_STATIC=ON
+            cmake --build "build/onsyuri-$ABI" --target onsyuri_libretro --parallel 4
+            cmake -S enginehost/android -B "build/enginehost-$ABI" "${common[@]}" \
+              -DONSYURI_BUILD_DIR="$PWD/build/onsyuri-$ABI"
+            cmake --build "build/enginehost-$ABI" --target nscripter_enginehost --parallel 4
           done
+      - name: Compile the plugin class
+        # The API classes are Enginehost's at run time: compiled against,
+        # never packed.
+        run: |
+          set -eux
+          jar="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar"
+          d8="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/d8"
+          mkdir -p build/api-classes build/plugin-classes build/dex
+          javac -nowarn -source 17 -target 17 -cp "$jar" -d build/api-classes $(find enginehost/android/api -name '*.java')
+          javac -nowarn -source 17 -target 17 -cp "$jar:build/api-classes" -d build/plugin-classes \
+            plugin-native/libretro/LibretroPlugin.java $(find enginehost/android/java -name '*.java')
+          "$d8" --release --min-api 26 --lib "$jar" --classpath build/api-classes --output build/dex \
+            $(find build/plugin-classes -name '*.class')
       - name: Check the wrapper against the engine it wraps
         run: python3 tests/check_engine_contract.py
       - name: Pack the unsigned bundle inputs
         run: |
-          set -eux
+          set -euo pipefail
           mkdir -p build/unsigned/payload
-          cp "$APK" build/unsigned/payload/runtime.apk
-          unzip -q "$APK" 'classes*.dex' 'lib/*' -d build/unsigned/payload
-          # The host class-loads exactly the dex files this metadata declares,
-          # so a hard-coded single-entry list silently drops the rest of the
-          # wrapper at launch. Declare what the payload actually contains, in
-          # load order -- numeric, because a lexical sort puts classes10 ahead
-          # of classes2.
-          python3 - <<'DEXES'
-          import json, pathlib, re
-          payload = pathlib.Path('build/unsigned/payload')
-          def order(p):
-              m = re.fullmatch(r'classes(\d*)\.dex', p.name)
-              return int(m.group(1) or 1)
-          dexes = sorted(payload.glob('classes*.dex'), key=order)
-          assert dexes, 'no classes*.dex in the APK payload'
-          meta = pathlib.Path('enginehost/bundle-metadata.json')
-          data = json.loads(meta.read_text())
-          data['dexFiles'] = [d.name for d in dexes]
-          meta.write_text(json.dumps(data, indent=2) + '\n')
-          print('dexFiles =', data['dexFiles'])
-          DEXES
+          cp build/dex/classes.dex build/unsigned/payload/classes.dex
+          nm="$(find "$ANDROID_HOME/ndk/$NDK_VERSION" -name llvm-nm -path '*linux-x86_64*' | head -1)"
+          for ABI in arm64-v8a x86_64; do
+            mkdir -p "build/unsigned/payload/lib/$ABI"
+            cp "build/enginehost-$ABI/libnscripter_enginehost.so" "build/unsigned/payload/lib/$ABI/"
+            # The isolated runtime binds the plugin's natives and the file
+            # layer through these two entry points.
+            symbols="$("$nm" -D --defined-only "build/unsigned/payload/lib/$ABI/libnscripter_enginehost.so")"
+            grep -q ' enginehost_register_natives$' <<<"$symbols"
+            grep -q ' enginehost_vfs_bind$' <<<"$symbols"
+          done
           cp enginehost/LICENSES.md build/unsigned/payload/LICENSES.md
           cp THIRD_PARTY.md build/unsigned/payload/THIRD_PARTY.md
           cp LICENSE build/unsigned/payload/COPYING.onscripter
