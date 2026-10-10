@@ -1,0 +1,9 @@
+{
+  "upstream": {
+    "repo": "Droidtop/enginehost-nscripter-plugin",
+    "ref": "main",
+    "commit": "ccc6431a49c90ba01e28873d1c538d48db219632",
+    "basedOn": "YuriSizuku/OnscripterYuri 08f744b31cc1907b66a15f0402e62321a131ed81 (0.7.7), vendored as cb50bdb"
+  },
+  "version": "0.7.7"
+}

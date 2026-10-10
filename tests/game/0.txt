@@ -1,0 +1,9 @@
+;mode640
+*define
+game
+
+*start
+`Hello from the Enginehost NScripter plugin test.
+getscreenshot 640,480
+savescreenshot2 "first-text.bmp"
+end
