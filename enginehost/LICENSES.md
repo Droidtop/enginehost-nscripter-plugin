@@ -2,7 +2,7 @@
 
 The payload is the ONScripter engine (the OnscripterYuri line), the SDL2
 libraries it links, and the Enginehost entry activity. Each component keeps its
-own licence; nothing here relicenses anything.
+own licence; the combined work is distributed under GPL-3.0 (see the end of this file).
 
 | Component | Licence | Notice shipped in the payload |
 | --- | --- | --- |
@@ -15,5 +15,5 @@ own licence; nothing here relicenses anything.
 | bzip2 1.0.8 | BSD-style | named in `THIRD_PARTY.md` |
 
 Because the engine is GPL-2.0-or-later, the bundle as distributed is covered by
-that licence. The corresponding source is the branch this bundle was built
+GPL-3.0 (`LICENSE.enginehost.txt`), which that allows. The corresponding source is the branch this bundle was built
 from, in this repository, at the commit the release names.

@@ -165,7 +165,7 @@ before any of that.
 
 ## Licence
 
-ONScripter is GPL-2.0-or-later and everything added here is part of that work
-under the same terms. `LICENSE` is upstream's GPL-2 text; `THIRD_PARTY.md` lists
+ONScripter is GPL-2.0-or-later; the combined work, with everything added here, is distributed
+under GPL-3.0, which that allows. `LICENSE` is the GPL-3.0 text and `src/onsyuri/COPYING` is upstream's GPL-2 text; `THIRD_PARTY.md` lists
 what else the bundle carries and under which licence. No restriction is added
 that the upstream does not require.

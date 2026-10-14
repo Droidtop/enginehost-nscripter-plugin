@@ -147,7 +147,8 @@ jobs:
           done
           cp enginehost/LICENSES.md build/unsigned/payload/LICENSES.md
           cp THIRD_PARTY.md build/unsigned/payload/THIRD_PARTY.md
-          cp LICENSE build/unsigned/payload/COPYING.onscripter
+          cp src/onsyuri/COPYING build/unsigned/payload/COPYING.onscripter
+          cp LICENSE build/unsigned/payload/LICENSE.enginehost.txt
           cp enginehost/bundle-metadata.json build/unsigned/bundle-metadata.json
           # A tar keeps the file modes the manifest signs; an artifact would not.
           tar -cf build/unsigned.tar -C build/unsigned payload bundle-metadata.json

@@ -157,6 +157,6 @@
     "revision": "0.7.7 (08f744b31cc1907b66a15f0402e62321a131ed81)"
   },
   "licenses": [
-    "GPL-2.0-or-later, with SDL2 and its satellites under Zlib and the other bundled upstream notices"
+    "GPL-3.0 (the combined bundle; upstream is GPL-2.0-or-later), with SDL2 and its satellites under Zlib and the other bundled upstream notices"
   ]
 }

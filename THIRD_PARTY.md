@@ -1,7 +1,7 @@
 # What this repository and its bundle carry
 
-Nothing here is relicensed. Each component keeps the terms it arrived under,
-and the bundle as distributed is covered by the GPL, because the engine is.
+Each component keeps the notices it arrived with. The bundle as distributed is covered by GPL-3.0:
+the engine is GPL-2.0-or-later, which allows it, and what is added here is ours under GPL-3.0.
 
 ## The engine
 
@@ -14,12 +14,11 @@ and the bundle as distributed is covered by the GPL, because the engine is.
 The whole engine tree under `src/onsyuri`, the Android project under
 `src/onsyuri_android`, `CMakeLists.txt` and `script/` came from OnscripterYuri
 at that revision; the first commit in this repository is that snapshot
-unmodified, so `git log` separates upstream's work from this project's. The
-GPL-2 text is in `LICENSE` and again in `src/onsyuri/COPYING`.
+unmodified, so `git log` separates upstream's work from this project's. Upstream's GPL-2 text is in `src/onsyuri/COPYING`; the root `LICENSE` is the GPL-3.0 text.
 
 The Enginehost integration in this repository — the entry activity, the bundle
-metadata, the workflow and the test — is part of the same work and is offered
-under GPL-2.0-or-later as well. It adds no condition of its own.
+metadata, the workflow and the test — is part of the same work and is
+GPL-3.0, which GPL-2.0-or-later upstream allows. It adds no condition beyond the GPL.
 
 ## Libraries the build fetches and links
 
