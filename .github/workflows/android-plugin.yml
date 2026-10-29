@@ -115,6 +115,9 @@ jobs:
               -DONSYURI_BUILD_DIR="$PWD/build/onsyuri-$ABI"
             cmake --build "build/enginehost-$ABI" --target nscripter_enginehost --parallel 4
           done
+      # The plugin API this core compiles against: Enginehost's own, at the commit pinned here
+      # (Droidtop/tracker#768: this repository used to commit a copy, which had fallen behind).
+      - uses: Droidtop/enginehost/.github/actions/plugin-api@527142623b8099782637b46c09e77e86988cfea9
       - name: Compile the plugin class
         # The API classes are Enginehost's at run time: compiled against,
         # never packed.
@@ -123,7 +126,7 @@ jobs:
           jar="$(ls -d "$ANDROID_HOME"/platforms/android-* | sort -V | tail -1)/android.jar"
           d8="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/d8"
           mkdir -p build/api-classes build/plugin-classes build/dex
-          javac -nowarn -source 17 -target 17 -cp "$jar" -d build/api-classes $(find enginehost/android/api -name '*.java')
+          javac -nowarn -source 17 -target 17 -cp "$jar" -d build/api-classes $(find build/enginehost/plugin-api/src/main/java -name '*.java')
           javac -nowarn -source 17 -target 17 -cp "$jar:build/api-classes" -d build/plugin-classes \
             plugin-native/libretro/LibretroPlugin.java $(find enginehost/android/java -name '*.java')
           "$d8" --release --min-api 26 --lib "$jar" --classpath build/api-classes --output build/dex \
