@@ -169,3 +169,16 @@ ONScripter is GPL-2.0-or-later; the combined work, with everything added here, i
 under GPL-3.0, which that allows. `LICENSE` is the GPL-3.0 text and `src/onsyuri/COPYING` is upstream's GPL-2 text; `THIRD_PARTY.md` lists
 what else the bundle carries and under which licence. No restriction is added
 that the upstream does not require.
+
+## Branches
+
+A core has only these branches (Droidtop/tracker#324, the owner, 2026-11-05):
+
+- `upstream-sync` follows upstream OnscripterYuri (vendored, with our engine changes)
+  (`YuriSizuku/OnscripterYuri`). It is updated from upstream's `main` by hand (there is no sync
+  workflow); nothing of ours is developed there.
+- `plugin-core`, the default branch, is the Enginehost recipe: the wrapper, the build workflows,
+  the bundle metadata, the patch series and the line pins. Recipe changes land here first,
+  through `ci/` branches.
+- `plugin/<line>` is upstream at the commit `enginehost/lines/<line>/line.json` pins, composed
+  with `plugin-core` by the plugin-line tool. Nothing on it is written by hand.
